@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Máquina de Turing — Simulador Interactivo</title>
+  <!--
+    Máquina de Turing — Simulador Educativo
+    Computación Teórica | Proyecto Universitario
+    ──────────────────────────────────────────
+    Fuentes desde Google Fonts (requiere internet)
+    Fallback: monospace / system-ui
+  -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ============================================================
+       VARIABLES & RESET
+    ============================================================ */
+    :root {
+      --bg:           #0c0f1a;
+      --surface:      #141929;
+      --surface2:     #1c2238;
+      --surface3:     #242b42;
+      --border:       #2a3254;
+      --border-light: #3a4468;
+      --text:         #dde4f0;
+      --text-dim:     #6b7a9e;
+      --text-faint:   #3d4a6b;
+      --accent:       #4fc3f7;
+      --accent-dim:   rgba(79,195,247,0.12);
+      --accent-glow:  rgba(79,195,247,0.25);
+      --head-color:   #fbbf24;
+      --head-glow:    rgba(251,191,36,0.2);
+      --accept:       #34d399;
+      --accept-dim:   rgba(52,211,153,0.1);
+      --reject:       #f87171;
+      --reject-dim:   rgba(248,113,113,0.1);
+      --timeout:      #fb923c;
+      --timeout-dim:  rgba(251,146,60,0.1);
+      --mono: 'JetBrains Mono', 'Courier New', monospace;
+      --sans: 'Sora', system-ui, -apple-system, sans-serif;
+      --radius: 10px;
+      --transition: 0.2s ease;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.55;
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+
+    /* ============================================================
+       HEADER
+    ============================================================ */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .header-icon {
+      width: 40px; height: 40px;
+      background: var(--accent-dim);
+      border: 1px solid var(--border-light);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    header h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    header h1 small {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 400;
+      color: var(--text-dim);
+      letter-spacing: 0;
+    }
+    .badge {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: var(--accent);
+      color: #0c0f1a;
+      padding: 3px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    /* ============================================================
+       LAYOUT
+    ============================================================ */
+    main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 24px 20px 40px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+
+    /* Card container */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+    }
+    .section-label {
+      font-size: 0.62rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-dim);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-label::before {
+      content: '';
+      display: block;
+      width: 3px; height: 13px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    /* Two-column layout for middle section */
+    .middle-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 18px;
+      align-items: start;
+    }
+    @media (max-width: 820px) {
+      .middle-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ============================================================
+       TAPE DISPLAY
+    ============================================================ */
+    .tape-section { overflow: hidden; }
+
+    .tape-head-indicator {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 6px;
+    }
+    .head-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+    }
+    .head-arrow .label {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      color: var(--head-color);
+      letter-spacing: 0.08em;
+    }
+    .head-arrow svg { color: var(--head-color); filter: drop-shadow(0 0 6px var(--head-color)); }
+
+    .tape-track {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      overflow-x: auto;
+      padding: 4px 0 8px;
+      scrollbar-width: none;
+    }
+    .tape-track::-webkit-scrollbar { display: none; }
+
+    .tape-cell {
+      min-width: 54px;
+      height: 66px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 1.5px solid var(--border);
+      border-radius: 9px;
+      background: var(--surface2);
+      font-family: var(--mono);
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text);
+      transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+      flex-shrink: 0;
+      cursor: default;
+      user-select: none;
+    }
+    .tape-cell .cell-pos {
+      position: absolute;
+      bottom: 5px;
+      font-size: 0.5rem;
+      font-weight: 400;
+      color: var(--text-faint);
+      font-family: var(--mono);
+    }
+    .tape-cell.blank { color: var(--text-faint); }
+    .tape-cell.head {
+      border-color: var(--head-color);
+      background: var(--head-glow);
+      color: var(--head-color);
+      box-shadow: 0 0 0 2px rgba(251,191,36,0.1), 0 0 20px var(--head-glow);
+      transform: scaleY(1.07);
+      z-index: 2;
+    }
+    .tape-cell.head .cell-pos { color: rgba(251,191,36,0.5); }
+
+    @keyframes pulse-head {
+      0%, 100% { box-shadow: 0 0 0 2px rgba(251,191,36,0.1), 0 0 18px var(--head-glow); }
+      50%       { box-shadow: 0 0 0 3px rgba(251,191,36,0.2), 0 0 32px rgba(251,191,36,0.35); }
+    }
+    .tape-cell.head { animation: pulse-head 2s ease-in-out infinite; }
+
+    .tape-cell.neighbor {
+      background: var(--surface3);
+      border-color: var(--border-light);
+    }
+
+    /* ============================================================
+       STATUS PANEL
+    ============================================================ */
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .status-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 12px 14px;
+    }
+    .status-item .stat-label {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      margin-bottom: 5px;
+    }
+    .status-item .stat-val {
+      font-family: var(--mono);
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--accent);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stat-val.state-accept { color: var(--accept); }
+    .stat-val.state-reject { color: var(--reject); }
+
+    /* Result banner */
+    #result-banner {
+      border-radius: 9px;
+      padding: 12px 16px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    #result-banner.visible { display: flex; }
+    #result-banner.accept  { background: var(--accept-dim);  border: 1.5px solid var(--accept);  color: var(--accept); }
+    #result-banner.reject  { background: var(--reject-dim);  border: 1.5px solid var(--reject);  color: var(--reject); }
+    #result-banner.timeout { background: var(--timeout-dim); border: 1.5px solid var(--timeout); color: var(--timeout); }
+
+    @keyframes banner-in {
+      from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    #result-banner.visible { animation: banner-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+    /* Transition info box */
+    .trans-info-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 12px 16px;
+      font-family: var(--mono);
+      font-size: 0.88rem;
+      color: var(--text-dim);
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .trans-info-box .ti-from  { color: var(--text); font-weight: 600; }
+    .trans-info-box .ti-arrow { color: var(--accent); margin: 0 8px; font-size: 1.1rem; }
+    .trans-info-box .ti-to    { color: var(--accent); font-weight: 600; }
+    .trans-info-box .ti-move  { color: var(--head-color); }
+    .trans-info-box.no-trans  { color: var(--text-faint); font-style: italic; }
+
+    /* ============================================================
+       CONTROLS
+    ============================================================ */
+    .controls-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 16px;
+      border-radius: 8px;
+      border: 1.5px solid transparent;
+      font-family: var(--sans);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+      line-height: 1;
+    }
+    .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0c0f1a;
+      border-color: var(--accent);
+    }
+    .btn-primary:hover { background: #81d4fa; box-shadow: 0 0 18px var(--accent-glow); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border-color: var(--border-light);
+    }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--reject);
+      border-color: var(--reject);
+    }
+    .btn-danger:hover { background: var(--reject-dim); }
+
+    .btn-success {
+      background: transparent;
+      color: var(--accept);
+      border-color: var(--accept);
+    }
+    .btn-success:hover { background: var(--accept-dim); }
+
+    .speed-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .speed-wrap input[type=range] {
+      width: 90px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .speed-val {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--accent);
+      min-width: 18px;
+    }
+
+    /* ============================================================
+       CONFIG & EXAMPLES
+    ============================================================ */
+    .config-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .field label {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+    }
+    .text-input {
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    .text-input:focus { border-color: var(--accent); }
+    .text-input.wide { min-width: 220px; }
+    .text-input.narrow { width: 80px; }
+
+    .examples-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .btn-ex {
+      background: var(--surface2);
+      color: var(--text-dim);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-family: var(--sans);
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 8px 14px;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .btn-ex:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+    .btn-ex.active { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+
+    .example-desc {
+      display: none;
+      background: rgba(79,195,247,0.05);
+      border: 1px solid rgba(79,195,247,0.18);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      margin-top: 12px;
+      line-height: 1.6;
+    }
+    .example-desc.visible { display: block; }
+
+    /* ============================================================
+       TRANSITION TABLE
+    ============================================================ */
+    .table-scroll { overflow-x: auto; }
+
+    table.trans-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .trans-table th {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      padding: 7px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .trans-table th.center { text-align: center; }
+    .trans-table td {
+      padding: 4px 5px;
+      border-bottom: 1px solid rgba(42,50,84,0.5);
+      vertical-align: middle;
+    }
+    .trans-table tbody tr:last-child td { border-bottom: none; }
+    .trans-table tbody tr { transition: background 0.15s; }
+    .trans-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+    .trans-table tbody tr.active-row { background: var(--accent-dim); }
+    .trans-table tbody tr.active-row td .t-input { color: var(--accent); }
+
+    /* Arrow column decoration */
+    .td-arrow {
+      color: var(--text-faint);
+      font-size: 1rem;
+      text-align: center;
+      user-select: none;
+      padding: 0 4px;
+    }
+
+    .t-input {
+      width: 100%;
+      background: transparent;
+      border: 1.5px solid transparent;
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.88rem;
+      padding: 6px 8px;
+      text-align: center;
+      outline: none;
+      transition: all var(--transition);
+    }
+    .t-input:focus {
+      background: var(--surface2);
+      border-color: var(--accent);
+    }
+    .t-select {
+      background: transparent;
+      border: 1.5px solid transparent;
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.88rem;
+      padding: 6px 8px;
+      text-align: center;
+      outline: none;
+      cursor: pointer;
+      transition: all var(--transition);
+      -webkit-appearance: none;
+      width: 100%;
+    }
+    .t-select:focus {
+      background: var(--surface2);
+      border-color: var(--accent);
+    }
+    .t-select option { background: var(--surface2); }
+
+    .btn-del-row {
+      background: none;
+      border: none;
+      color: var(--text-faint);
+      cursor: pointer;
+      font-size: 0.9rem;
+      padding: 5px 9px;
+      border-radius: 5px;
+      line-height: 1;
+      transition: color var(--transition);
+    }
+    .btn-del-row:hover { color: var(--reject); }
+
+    .table-footer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 14px;
+    }
+    .table-hint {
+      font-size: 0.72rem;
+      color: var(--text-faint);
+      margin-left: 4px;
+    }
+
+    /* ============================================================
+       STEP LOG
+    ============================================================ */
+    .log-container {
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      overflow: hidden;
+    }
+    .log-header-row {
+      display: grid;
+      grid-template-columns: 52px 90px 64px 56px 1fr;
+      gap: 0;
+      padding: 7px 14px;
+      font-size: 0.58rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+    #step-log {
+      background: var(--surface2);
+      max-height: 230px;
+      overflow-y: auto;
+    }
+    .log-entry {
+      display: grid;
+      grid-template-columns: 52px 90px 64px 56px 1fr;
+      gap: 0;
+      padding: 7px 14px;
+      border-bottom: 1px solid rgba(42,50,84,0.4);
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      transition: background 0.12s;
+    }
+    .log-entry:last-child { border-bottom: none; }
+    .log-entry:hover { background: rgba(255,255,255,0.025); }
+    .log-step   { color: var(--text-faint); }
+    .log-state  { color: var(--accent); }
+    .log-head   { color: var(--text-dim); text-align: center; }
+    .log-sym    { color: var(--head-color); text-align: center; }
+    .log-action { color: var(--text); }
+    .log-entry.log-accept .log-action { color: var(--accept); font-weight: 700; }
+    .log-entry.log-reject .log-action { color: var(--reject); font-weight: 700; }
+    .log-entry.log-timeout .log-action { color: var(--timeout); font-weight: 700; }
+    .log-empty {
+      padding: 20px 16px;
+      font-size: 0.78rem;
+      color: var(--text-faint);
+      font-family: var(--mono);
+      text-align: center;
+    }
+
+    @keyframes log-slide {
+      from { opacity: 0; transform: translateX(-6px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .log-entry { animation: log-slide 0.18s ease; }
+
+    /* ============================================================
+       RESPONSIVE
+    ============================================================ */
+    @media (max-width: 640px) {
+      header { padding: 12px 16px; }
+      main { padding: 16px 12px 32px; }
+      .card { padding: 14px 14px; }
+      .tape-cell { min-width: 46px; height: 58px; font-size: 1.1rem; }
+      .status-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+      .stat-val { font-size: 1rem; }
+      .controls-bar { gap: 6px; }
+      .speed-wrap { margin-left: 0; }
+      .log-header-row,
+      .log-entry { grid-template-columns: 40px 78px 50px 46px 1fr; font-size: 0.72rem; }
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- ============================================================
+     HEADER
+============================================================ -->
+<header>
+  <div class="header-left">
+    <div class="header-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4fc3f7" stroke-width="1.8">
+        <rect x="2" y="8" width="20" height="9" rx="2"/>
+        <line x1="7" y1="8" x2="7" y2="17"/>
+        <line x1="12" y1="8" x2="12" y2="17"/>
+        <line x1="17" y1="8" x2="17" y2="17"/>
+        <polygon points="12,2 10,6.5 14,6.5" fill="#fbbf24" stroke="none"/>
+      </svg>
+    </div>
+    <h1>
+      Máquina de Turing
+      <small>Simulador interactivo · Gramatica y lenguajes formales UTP</small>
+      <small>Sebastian Atehortua Vasquez · Angel David Henao Velez</small>
+    </h1>
+  </div>
+  <span class="badge">v1.1</span>
+</header>
+
+<!-- ============================================================
+     MAIN
+============================================================ -->
+<main>
+
+  <!-- ── TAPE ── -->
+  <div class="card tape-section">
+    <div class="section-label">Cinta (infinita en ambas direcciones)</div>
+    <div class="tape-head-indicator">
+      <div class="head-arrow">
+        <span class="label">CABEZAL</span>
+        <svg width="16" height="10" viewBox="0 0 16 10" fill="currentColor">
+          <path d="M8 10 L0 0 L16 0 Z"/>
+        </svg>
+      </div>
+    </div>
+    <div class="tape-track" id="tape-track">
+      <!-- cells rendered by JS -->
+    </div>
+  </div>
+
+  <!-- ── STATUS + TRANSITION INFO ── -->
+  <div>
+    <div class="status-grid">
+      <div class="status-item">
+        <div class="stat-label">Estado actual</div>
+        <div class="stat-val" id="s-state">q0</div>
+      </div>
+      <div class="status-item">
+        <div class="stat-label">Símbolo leído</div>
+        <div class="stat-val" id="s-sym">#</div>
+      </div>
+      <div class="status-item">
+        <div class="stat-label">Pasos ejecutados</div>
+        <div class="stat-val" id="s-steps">0</div>
+      </div>
+    </div>
+
+    <div id="result-banner"></div>
+
+    <div class="trans-info-box no-trans" id="trans-info">
+      Sin transición aplicada aún — presiona «Paso a paso» para comenzar
+    </div>
+  </div>
+
+  <!-- ── CONTROLS ── -->
+  <div class="card">
+    <div class="section-label">Controles de ejecución</div>
+    <div class="controls-bar">
+
+      <button class="btn btn-primary" id="btn-step" onclick="uiStep()" title="Ejecutar un paso">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5,3 19,12 5,21"/>
+          <rect x="19" y="3" width="3" height="18" rx="1"/>
+        </svg>
+        Paso a Paso
+      </button>
+
+      <button class="btn btn-ghost" id="btn-run" onclick="uiRun()" title="Ejecutar automáticamente">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5,3 19,12 5,21"/>
+        </svg>
+        Ejecutar
+      </button>
+
+      <button class="btn btn-ghost" id="btn-pause" onclick="uiPause()" disabled title="Pausar">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="5" y="3" width="5" height="18" rx="1"/>
+          <rect x="14" y="3" width="5" height="18" rx="1"/>
+        </svg>
+        Pausar
+      </button>
+
+      <button class="btn btn-danger" onclick="uiReset()" title="Reiniciar sin cambiar configuración">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <polyline points="1,4 1,10 7,10"/>
+          <path d="M3.51 15a9 9 0 1 0 .49-5.38"/>
+        </svg>
+        Reiniciar
+      </button>
+
+      <div class="speed-wrap">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12,6 12,12 16,14"/>
+        </svg>
+        Velocidad
+        <input type="range" id="speed-slider" min="1" max="10" value="5">
+        <span class="speed-val" id="speed-val">5</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── CONFIG ── -->
+  <div class="card">
+    <div class="section-label">Configuración de entrada</div>
+    <div class="config-row">
+      <div class="field">
+        <label>Cinta inicial &nbsp;(<code style="font-size:.9em">#</code> = blanco)</label>
+        <input id="tape-input" class="text-input wide" type="text" value="111+11"
+               placeholder="Ej: 1010, abba, 111+11">
+      </div>
+      <div class="field">
+        <label>Pos. inicial cabezal</label>
+        <input id="head-input" class="text-input narrow" type="number" value="0">
+      </div>
+      <button class="btn btn-ghost" onclick="uiApplyConfig()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <polyline points="20,6 9,17 4,12"/>
+        </svg>
+        Aplicar
+      </button>
+    </div>
+
+    <div style="margin-top:18px">
+      <div class="section-label" style="margin-bottom:10px">Ejemplos precargados</div>
+      <div class="examples-row">
+        <button class="btn-ex" id="ex-unary_add"  onclick="loadExample('unary_add')">
+          ➕ Suma Unaria
+        </button>
+        <button class="btn-ex" id="ex-even_ones" onclick="loadExample('even_ones')">
+          🔢 Par de Unos
+        </button>
+        <button class="btn-ex" id="ex-palindrome" onclick="loadExample('palindrome')">
+          🔄 Palíndromo
+        </button>
+      </div>
+      <div class="example-desc" id="example-desc"></div>
+    </div>
+  </div>
+
+  <!-- ── TRANSITIONS TABLE ── -->
+  <div class="card">
+    <div class="section-label">Tabla de transiciones &nbsp;
+      <span style="font-weight:400;color:var(--text-faint);text-transform:none;letter-spacing:0;font-size:0.7rem">
+        (estado, lee) → (nuevo estado, escribe, movimiento)
+      </span>
+    </div>
+    <div class="table-scroll">
+      <table class="trans-table" id="trans-table">
+        <thead>
+          <tr>
+            <th class="center">Estado</th>
+            <th class="center">Lee</th>
+            <th></th>
+            <th class="center">Nuevo Estado</th>
+            <th class="center">Escribe</th>
+            <th class="center">Mueve</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="trans-tbody">
+          <!-- rows added by JS -->
+        </tbody>
+      </table>
+    </div>
+    <div class="table-footer">
+      <button class="btn btn-ghost" style="font-size:0.8rem" onclick="addTransRow()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Añadir fila
+      </button>
+      <button class="btn btn-success" style="font-size:0.8rem" id="btn-apply-trans" onclick="applyTransitions()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <polyline points="20,6 9,17 4,12"/>
+        </svg>
+        Aplicar transiciones
+      </button>
+      <span class="table-hint">
+        Movimiento: R = derecha, L = izquierda, S = quedarse
+      </span>
+    </div>
+  </div>
+
+  <!-- ── LOG ── -->
+  <div class="card">
+    <div class="section-label" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>Historial de pasos</span>
+      <button class="btn btn-ghost" style="font-size:0.75rem;padding:5px 12px;margin-left:auto" onclick="clearLog()">
+        Limpiar log
+      </button>
+    </div>
+    <div class="log-container">
+      <div class="log-header-row">
+        <span>Paso</span>
+        <span>Estado</span>
+        <span style="text-align:center">Cabezal</span>
+        <span style="text-align:center">Lee</span>
+        <span>Acción</span>
+      </div>
+      <div id="step-log">
+        <div class="log-empty" id="log-empty">
+          — El historial de pasos aparecerá aquí —
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+
+<!-- ============================================================
+     JAVASCRIPT
+============================================================ -->
+<script>
+'use strict';
+
+/* ============================================================
+   TURING MACHINE ENGINE
+   ─────────────────────────────────────────────────────────────
+   Cinta: objeto disperso {pos → símbolo}. El símbolo blanco '#'
+   se omite (se asume en cualquier posición no definida).
+   
+   Transiciones: objeto {"estado,símbolo" → {next, write, move}}
+   move: 'L' | 'R' | 'S' (S = quedarse en el lugar)
+============================================================ */
+class TuringMachine {
+
+  constructor() {
+    this.tape        = {};      // cinta: {número → carácter}
+    this.head        = 0;      // posición del cabezal
+    this.state       = 'q0';   // estado actual
+    this.transitions = {};     // función de transición
+    this.steps       = 0;      // contador de pasos
+    this.maxSteps    = 1000;   // límite de seguridad (anti-bucle)
+    this.stepLog     = [];     // historial de configuraciones
+    this.halted      = false;  // ¿la MT se detuvo?
+    this.result      = null;   // 'accept' | 'reject' | 'timeout'
+    this.lastApplied = null;   // última transición aplicada
+  }
+
+  /* Lee el símbolo en la posición dada (# si está vacío) */
+  read(pos) {
+    return (this.tape[pos] !== undefined) ? this.tape[pos] : '#';
+  }
+
+  /* Escribe un símbolo (borra la celda si es '#') */
+  write(pos, sym) {
+    if (sym === '#') delete this.tape[pos];
+    else this.tape[pos] = sym;
+  }
+
+  /* Carga la cinta a partir de una cadena y reinicia todo */
+  loadTape(str, headStart = 0) {
+    this.tape        = {};
+    this.head        = parseInt(headStart) || 0;
+    this.state       = 'q0';
+    this.steps       = 0;
+    this.stepLog     = [];
+    this.halted      = false;
+    this.result      = null;
+    this.lastApplied = null;
+    for (let i = 0; i < str.length; i++) {
+      if (str[i] !== '#') this.tape[i] = str[i];
+    }
+  }
+
+  /* Define la función de transición desde un array de 5-tuplas:
+     [[estado, lee, nuevo_estado, escribe, mueve], ...] */
+  setTransitions(arr) {
+    this.transitions = {};
+    for (const [state, read, next, write, move] of arr) {
+      const key = `${state.trim()},${read.trim()}`;
+      this.transitions[key] = {
+        next:  next.trim(),
+        write: write.trim(),
+        move:  move.trim().toUpperCase()
+      };
+    }
+  }
+
+  /*
+   * Ejecuta un paso de la máquina.
+   * Retorna: 'continue' | 'accept' | 'reject' | 'timeout' | 'halted'
+   * ─────────────────────────────────────────────────────────────────
+   * Cada llamada agrega exactamente UNA entrada a stepLog.
+   */
+  step() {
+    if (this.halted) return 'halted';
+
+    /* ── ① Comprobar si ya estamos en un estado final ── */
+    if (this.state === 'q_accept') {
+      this._logAndHalt('accept', null);
+      return 'accept';
+    }
+    if (this.state === 'q_reject') {
+      this._logAndHalt('reject', null);
+      return 'reject';
+    }
+
+    /* ── ② Leer símbolo y buscar transición ── */
+    const sym = this.read(this.head);
+    const key = `${this.state},${sym}`;
+    const t   = this.transitions[key];
+
+    /* ── ③ Sin transición → rechazo implícito ── */
+    if (!t) {
+      this.stepLog.push({
+        step: this.steps, state: this.state,
+        head: this.head, sym, key, applied: null, halted: 'reject'
+      });
+      this.lastApplied = null;
+      this._halt('reject');
+      return 'reject';
+    }
+
+    /* ── ④ Registrar paso ANTES de aplicar ── */
+    this.stepLog.push({
+      step: this.steps, state: this.state,
+      head: this.head, sym, key, applied: { ...t }
+    });
+
+    /* ── ⑤ Aplicar transición ── */
+    this.lastApplied = { from: this.state, sym, key, ...t };
+    this.write(this.head, t.write);
+    this.state = t.next;
+
+    if      (t.move === 'L') this.head--;
+    else if (t.move === 'R') this.head++;
+    /* 'S' = sin movimiento */
+
+    this.steps++;
+
+    /* ── ⑥ Comprobar límite de pasos ── */
+    if (this.steps >= this.maxSteps) {
+      this._halt('timeout');
+      return 'timeout';
+    }
+
+    /* ── ⑦ ¿Llegamos a un estado final? ── */
+    if (this.state === 'q_accept') { this._halt('accept'); return 'accept'; }
+    if (this.state === 'q_reject') { this._halt('reject'); return 'reject'; }
+
+    return 'continue';
+  }
+
+  /* Registra el paso de entrada a un estado final y detiene */
+  _logAndHalt(result, t) {
+    this.stepLog.push({
+      step: this.steps, state: this.state,
+      head: this.head, sym: this.read(this.head),
+      key: '—', applied: null, halted: result
+    });
+    this._halt(result);
+  }
+
+  _halt(result) {
+    this.halted = true;
+    this.result = result;
+  }
+
+  /* Devuelve array de celdas {pos, sym, isHead} en rango [center-r, center+r] */
+  getCells(center, radius) {
+    const cells = [];
+    for (let p = center - radius; p <= center + radius; p++) {
+      cells.push({ pos: p, sym: this.read(p), isHead: p === this.head });
+    }
+    return cells;
+  }
+}
+
+
+/* ============================================================
+   EJEMPLOS PRECARGADOS
+   ─────────────────────────────────────────────────────────────
+   Cada ejemplo tiene: input (cinta inicial), head (posición
+   inicial), transitions (5-tuplas), description (texto).
+============================================================ */
+const EXAMPLES = {
+
+  /* ── Suma Unaria ── */
+  unary_add: {
+    label: 'Suma Unaria',
+    input: '111+11',
+    head: 0,
+    transitions: [
+      // q0: avanzar sobre los 1s del primer número
+      ['q0', '1', 'q0', '1', 'R'],
+      // Al llegar al '+', reemplazarlo por '1' y continuar
+      ['q0', '+', 'q1', '1', 'R'],
+      // q1: avanzar sobre los 1s del segundo número
+      ['q1', '1', 'q1', '1', 'R'],
+      // Al llegar al blanco (fin de cinta), retroceder
+      ['q1', '#', 'q2', '#', 'L'],
+      // q2: estamos en el último '1'; borrarlo y aceptar
+      ['q2', '1', 'q_accept', '#', 'S'],
+    ],
+    description:
+      '➕  Suma dos números en notación UNARIA separados por "+". ' +
+      'Estrategia: el "+" se convierte en un "1" extra; luego se borra el último "1" para compensar.\n' +
+      '   Entrada:  111 + 11  (representa 3 + 2)\n' +
+      '   Salida:   11111     (representa 5)\n' +
+      'Prueba también con: "1+1111" (1+4), "11+1" (2+1), "#" (borde: 0).'
+  },
+
+  /* ── Detectar cantidad par de 1s ── */
+  even_ones: {
+    label: 'Par de Unos',
+    input: '10110',
+    head: 0,
+    transitions: [
+      // q0 = hemos visto un número PAR de 1s hasta ahora
+      ['q0', '0', 'q0', '0', 'R'],        // ignorar ceros
+      ['q0', '1', 'q1', '1', 'R'],        // cambiar paridad
+      ['q0', '#', 'q_accept', '#', 'S'],  // fin: par → aceptar
+
+      // q1 = hemos visto un número IMPAR de 1s hasta ahora
+      ['q1', '0', 'q1', '0', 'R'],        // ignorar ceros
+      ['q1', '1', 'q0', '1', 'R'],        // cambiar paridad
+      ['q1', '#', 'q_reject', '#', 'S'],  // fin: impar → rechazar
+    ],
+    description:
+      '🔢  Acepta cadenas sobre {0, 1} con número PAR de unos.\n' +
+      '   q0 = paridad par  •  q1 = paridad impar\n' +
+      '   Esta MT es equivalente a un AFD con 2 estados.\n' +
+      'Prueba: "1010" → 2 unos (✓)  •  "10110" → 3 unos (✗)  •  "1111" → 4 unos (✓).'
+  },
+
+  /* ── Palíndromos sobre {a, b} ── */
+  palindrome: {
+    label: 'Palíndromo',
+    input: 'abba',
+    head: 0,
+    transitions: [
+      // ── q0: leer símbolo más a la izquierda y borrarlo ──
+      ['q0', 'a', 'q1', '#', 'R'],        // leímos 'a', ir a buscar 'a' al extremo derecho
+      ['q0', 'b', 'q2', '#', 'R'],        // leímos 'b', ir a buscar 'b' al extremo derecho
+      ['q0', '#', 'q_accept', '#', 'S'],  // cinta vacía → palíndromo
+
+      // ── q1: ir al extremo derecho (recordando que esperamos 'a') ──
+      ['q1', 'a', 'q1', 'a', 'R'],
+      ['q1', 'b', 'q1', 'b', 'R'],
+      ['q1', '#', 'q3', '#', 'L'],        // encontramos el blanco derecho, retroceder
+
+      // ── q2: ir al extremo derecho (recordando que esperamos 'b') ──
+      ['q2', 'a', 'q2', 'a', 'R'],
+      ['q2', 'b', 'q2', 'b', 'R'],
+      ['q2', '#', 'q4', '#', 'L'],        // encontramos el blanco derecho, retroceder
+
+      // ── q3: verificar que el símbolo más a la derecha sea 'a' ──
+      ['q3', 'a', 'q5', '#', 'L'],        // coincide → borrar y volver al inicio
+      ['q3', 'b', 'q_reject', 'b', 'S'],  // no coincide → rechazar
+      ['q3', '#', 'q_accept', '#', 'S'],  // un solo símbolo central → palíndromo
+
+      // ── q4: verificar que el símbolo más a la derecha sea 'b' ──
+      ['q4', 'b', 'q5', '#', 'L'],        // coincide → borrar y volver al inicio
+      ['q4', 'a', 'q_reject', 'a', 'S'],  // no coincide → rechazar
+      ['q4', '#', 'q_accept', '#', 'S'],  // un solo símbolo central → palíndromo
+
+      // ── q5: volver al inicio (buscar el borde izquierdo '#') ──
+      ['q5', 'a', 'q5', 'a', 'L'],
+      ['q5', 'b', 'q5', 'b', 'L'],
+      ['q5', '#', 'q0', '#', 'R'],        // llegamos al borde, reiniciar ciclo
+    ],
+    description:
+      '🔄  Reconoce palíndromos sobre el alfabeto {a, b}.\n' +
+      '   Algoritmo: borra el primer y el último símbolo si coinciden, repite.\n' +
+      '   q1/q2 = yendo al extremo derecho  •  q3/q4 = verificando coincidencia  •  q5 = volviendo al inicio.\n' +
+      'Prueba: "abba" (✓)  •  "aba" (✓)  •  "ab" (✗)  •  "aabbaa" (✓)  •  "abab" (✗).'
+  }
+};
+
+
+/* ============================================================
+   ESTADO GLOBAL DE LA INTERFAZ
+============================================================ */
+const tm = new TuringMachine();
+let runInterval       = null;    // referencia al setInterval del modo automático
+let isRunning         = false;   // ¿está ejecutándose automáticamente?
+let logRenderedCount  = 0;       // cuántas entradas del stepLog ya se mostraron en el DOM
+const TAPE_RADIUS     = 7;       // mostrar 15 celdas (−7 a +7 respecto al cabezal)
+
+
+/* ============================================================
+   RENDER: CINTA
+============================================================ */
+function renderTape() {
+  const track = document.getElementById('tape-track');
+  const cells  = tm.getCells(tm.head, TAPE_RADIUS);
+  track.innerHTML = '';
+
+  cells.forEach(({ pos, sym, isHead }) => {
+    const isNeighbor = Math.abs(pos - tm.head) === 1;
+    const div = document.createElement('div');
+    div.className =
+      'tape-cell' +
+      (isHead     ? ' head'     : '') +
+      (!isHead && isNeighbor ? ' neighbor' : '') +
+      (sym === '#' && !isHead ? ' blank' : '');
+    div.innerHTML =
+      `<span>${sym}</span>` +
+      `<span class="cell-pos">${pos}</span>`;
+    track.appendChild(div);
+  });
+}
+
+
+/* ============================================================
+   RENDER: ESTADO / PASOS / SÍMBOLO LEÍDO
+============================================================ */
+function renderStatus() {
+  const stateEl = document.getElementById('s-state');
+  const symEl   = document.getElementById('s-sym');
+  const stepsEl = document.getElementById('s-steps');
+
+  stateEl.textContent = tm.state;
+  symEl.textContent   = tm.read(tm.head);
+  stepsEl.textContent = tm.steps;
+
+  stateEl.className = 'stat-val';
+  if (tm.state === 'q_accept') stateEl.classList.add('state-accept');
+  else if (tm.state === 'q_reject') stateEl.classList.add('state-reject');
+}
+
+
+/* ============================================================
+   RENDER: INFO DE TRANSICIÓN APLICADA
+============================================================ */
+function renderTransInfo() {
+  const el = document.getElementById('trans-info');
+  const t  = tm.lastApplied;
+
+  if (!t) {
+    el.className   = 'trans-info-box no-trans';
+    el.innerHTML   = 'Sin transición aplicada aún — presiona «Paso a paso» para comenzar';
+    return;
+  }
+
+  const moveLabel = { L: '← Izquierda', R: '→ Derecha', S: '● Quedarse' }[t.move] || t.move;
+
+  el.className = 'trans-info-box';
+  el.innerHTML =
+    `<span class="ti-from">(${t.from},&nbsp;'${t.sym}')</span>` +
+    `<span class="ti-arrow">⟶</span>` +
+    `<span class="ti-to">(${t.next},&nbsp;'${t.write}',&nbsp;</span>` +
+    `<span class="ti-move">${moveLabel}</span>` +
+    `<span class="ti-to">)</span>`;
+}
+
+
+/* ============================================================
+   RENDER: BANNER DE RESULTADO
+============================================================ */
+function renderResult() {
+  const banner = document.getElementById('result-banner');
+  banner.className = '';
+
+  if (!tm.halted) return;
+
+  const msgs = {
+    accept:  '✅  CADENA ACEPTADA — la máquina alcanzó el estado q_accept.',
+    reject:  '❌  CADENA RECHAZADA — alcanzó q_reject o no existe transición definida.',
+    timeout: `⚠️  LÍMITE DE PASOS ALCANZADO (${tm.maxSteps} pasos) — posible bucle infinito.`
+  };
+
+  banner.textContent = msgs[tm.result] || '';
+  banner.className   = `visible ${tm.result}`;
+}
+
+
+/* ============================================================
+   RENDER: RESALTAR FILA ACTIVA EN LA TABLA
+============================================================ */
+function highlightActiveRow(key) {
+  document.querySelectorAll('#trans-tbody tr').forEach(tr => tr.classList.remove('active-row'));
+  if (!key) return;
+
+  document.querySelectorAll('#trans-tbody tr').forEach(tr => {
+    const s = tr.querySelector('.t-state')?.value?.trim();
+    const r = tr.querySelector('.t-read')?.value?.trim();
+    if (s && r && `${s},${r}` === key) tr.classList.add('active-row');
+  });
+}
+
+
+/* ============================================================
+   RENDER: LOG DE PASOS
+============================================================ */
+function renderNewLogEntries() {
+  const log      = document.getElementById('step-log');
+  const emptyEl  = document.getElementById('log-empty');
+  const newCount = tm.stepLog.length;
+
+  if (newCount > 0 && emptyEl) emptyEl.remove();
+
+  while (logRenderedCount < newCount) {
+    const entry = tm.stepLog[logRenderedCount];
+    const div   = document.createElement('div');
+
+    /* Descripción de la acción */
+    let action;
+    if (entry.halted) {
+      const labels = {
+        accept:  '🏁  ACEPTADA',
+        reject:  '🚫  RECHAZADA',
+        timeout: '⏱  TIEMPO LÍMITE'
+      };
+      action = labels[entry.halted] || 'DETENIDA';
+    } else if (entry.applied) {
+      const mv  = { L: '←', R: '→', S: '●' }[entry.applied.move] || entry.applied.move;
+      action = `→ (${entry.applied.next}, '${entry.applied.write}', ${mv})`;
+    } else {
+      action = '✗ Sin transición definida';
+    }
+
+    div.className =
+      'log-entry' +
+      (entry.halted === 'accept'  ? ' log-accept'  : '') +
+      (entry.halted === 'reject'  ? ' log-reject'  : '') +
+      (entry.halted === 'timeout' ? ' log-timeout' : '');
+
+    div.innerHTML =
+      `<span class="log-step">#${entry.step}</span>` +
+      `<span class="log-state">${entry.state}</span>` +
+      `<span class="log-head">${entry.head}</span>` +
+      `<span class="log-sym">'${entry.sym}'</span>` +
+      `<span class="log-action">${action}</span>`;
+
+    log.appendChild(div);
+    logRenderedCount++;
+  }
+
+  log.scrollTop = log.scrollHeight;
+}
+
+function clearLog() {
+  const log = document.getElementById('step-log');
+  log.innerHTML = '<div class="log-empty" id="log-empty">— El historial de pasos aparecerá aquí —</div>';
+  logRenderedCount = 0;
+  tm.stepLog = [];
+}
+
+
+/* ============================================================
+   RENDER COMPLETO (tape + status + log + tabla activa)
+============================================================ */
+function renderAll() {
+  renderTape();
+  renderStatus();
+  renderTransInfo();
+  renderResult();
+  renderNewLogEntries();
+  highlightActiveRow(tm.lastApplied?.key || null);
+}
+
+
+/* ============================================================
+   TABLA DE TRANSICIONES: CREAR FILA
+============================================================ */
+function buildRow(state = '', read = '', next = '', write = '', move = 'R') {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>
+      <input class="t-input t-state" value="${state}" placeholder="q0" title="Estado actual">
+    </td>
+    <td>
+      <input class="t-input t-read" value="${read}" placeholder="#" title="Símbolo leído"
+             style="max-width:80px">
+    </td>
+    <td class="td-arrow">→</td>
+    <td>
+      <input class="t-input t-next" value="${next}" placeholder="q1" title="Nuevo estado">
+    </td>
+    <td>
+      <input class="t-input t-write" value="${write}" placeholder="#" title="Símbolo a escribir"
+             style="max-width:80px">
+    </td>
+    <td>
+      <select class="t-select t-move" title="Dirección del movimiento">
+        <option value="R" ${move === 'R' ? 'selected' : ''}>R →</option>
+        <option value="L" ${move === 'L' ? 'selected' : ''}>L ←</option>
+        <option value="S" ${move === 'S' ? 'selected' : ''}>S ●</option>
+      </select>
+    </td>
+    <td>
+      <button class="btn-del-row" onclick="this.closest('tr').remove()" title="Eliminar fila">✕</button>
+    </td>
+  `;
+  return tr;
+}
+
+function addTransRow() {
+  document.getElementById('trans-tbody').appendChild(buildRow());
+}
+
+function loadTransitionsIntoTable(arr) {
+  const tbody = document.getElementById('trans-tbody');
+  tbody.innerHTML = '';
+  arr.forEach(([s, r, n, w, m]) => tbody.appendChild(buildRow(s, r, n, w, m)));
+}
+
+function applyTransitions() {
+  const rows = document.querySelectorAll('#trans-tbody tr');
+  const arr  = [];
+  rows.forEach(tr => {
+    const s = tr.querySelector('.t-state')?.value?.trim();
+    const r = tr.querySelector('.t-read')?.value?.trim();
+    const n = tr.querySelector('.t-next')?.value?.trim();
+    const w = tr.querySelector('.t-write')?.value?.trim();
+    const m = tr.querySelector('.t-move')?.value?.trim();
+    if (s && r && n && w && m) arr.push([s, r, n, w, m]);
+  });
+  tm.setTransitions(arr);
+
+  /* Feedback visual */
+  const btn       = document.getElementById('btn-apply-trans');
+  btn.textContent = '✓ ¡Aplicadas!';
+  setTimeout(() => {
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2.5" stroke-linecap="round"><polyline points="20,6 9,17 4,12"/></svg> Aplicar transiciones`;
+  }, 1600);
+}
+
+
+/* ============================================================
+   ACCIONES DE CONTROL
+============================================================ */
+
+/* Ejecuta un solo paso */
+function uiStep() {
+  if (tm.halted || isRunning) return;
+  tm.step();
+  renderAll();
+  updateButtons();
+}
+
+/* Inicia la ejecución automática */
+function uiRun() {
+  if (isRunning || tm.halted) return;
+  isRunning = true;
+  updateButtons();
+
+  const speed = parseInt(document.getElementById('speed-slider').value);
+  const delay = Math.max(40, 620 - speed * 58); // 40 ms (rápido) → 562 ms (lento)
+
+  runInterval = setInterval(() => {
+    if (tm.halted) { uiPause(); return; }
+    const result = tm.step();
+    renderAll();
+    if (result !== 'continue') uiPause();
+  }, delay);
+}
+
+/* Pausa la ejecución automática */
+function uiPause() {
+  if (runInterval) { clearInterval(runInterval); runInterval = null; }
+  isRunning = false;
+  updateButtons();
+}
+
+/* Reinicia la MT con la configuración actual de la interfaz */
+function uiReset() {
+  uiPause();
+  const input = document.getElementById('tape-input').value;
+  const head  = parseInt(document.getElementById('head-input').value) || 0;
+
+  tm.loadTape(input || '#', head);
+
+  /* Limpiar log DOM */
+  const log = document.getElementById('step-log');
+  log.innerHTML = '<div class="log-empty" id="log-empty">— El historial de pasos aparecerá aquí —</div>';
+  logRenderedCount = 0;
+
+  /* Limpiar UI */
+  document.getElementById('result-banner').className = '';
+  document.getElementById('trans-info').className    = 'trans-info-box no-trans';
+  document.getElementById('trans-info').textContent  =
+    'Sin transición aplicada aún — presiona «Paso a paso» para comenzar';
+  document.querySelectorAll('#trans-tbody tr').forEach(tr => tr.classList.remove('active-row'));
+
+  renderTape();
+  renderStatus();
+  updateButtons();
+}
+
+/* Aplica configuración de cinta y reinicia */
+function uiApplyConfig() {
+  applyTransitions();
+  uiReset();
+}
+
+/* Carga un ejemplo precargado */
+function loadExample(name) {
+  uiPause();
+  const ex = EXAMPLES[name];
+  if (!ex) return;
+
+  /* Actualizar inputs de cinta */
+  document.getElementById('tape-input').value = ex.input;
+  document.getElementById('head-input').value = ex.head;
+
+  /* Cargar transiciones en tabla y en la MT */
+  loadTransitionsIntoTable(ex.transitions);
+  tm.setTransitions(ex.transitions);
+  tm.loadTape(ex.input, ex.head);
+
+  /* Mostrar descripción */
+  const desc = document.getElementById('example-desc');
+  desc.textContent = ex.description;
+  desc.classList.add('visible');
+
+  /* Marcar botón activo */
+  document.querySelectorAll('.btn-ex').forEach(b => b.classList.remove('active'));
+  const activeBtn = document.getElementById(`ex-${name}`);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  /* Limpiar log y resultados */
+  const log = document.getElementById('step-log');
+  log.innerHTML = '<div class="log-empty" id="log-empty">— El historial de pasos aparecerá aquí —</div>';
+  logRenderedCount = 0;
+
+  document.getElementById('result-banner').className = '';
+  document.getElementById('trans-info').className    = 'trans-info-box no-trans';
+  document.getElementById('trans-info').textContent  =
+    'Sin transición aplicada aún — presiona «Paso a paso» para comenzar';
+  document.querySelectorAll('#trans-tbody tr').forEach(tr => tr.classList.remove('active-row'));
+
+  renderTape();
+  renderStatus();
+  updateButtons();
+}
+
+/* Activa / desactiva botones según el estado de la máquina */
+function updateButtons() {
+  document.getElementById('btn-step').disabled  = tm.halted || isRunning;
+  document.getElementById('btn-run').disabled   = tm.halted || isRunning;
+  document.getElementById('btn-pause').disabled = !isRunning;
+}
+
+
+/* ============================================================
+   EVENTOS DE LA INTERFAZ
+============================================================ */
+
+/* Control de velocidad */
+document.getElementById('speed-slider').addEventListener('input', function() {
+  document.getElementById('speed-val').textContent = this.value;
+  if (isRunning) { uiPause(); uiRun(); } /* reiniciar con nueva velocidad */
+});
+
+/* Tecla Enter en los campos de texto */
+document.getElementById('tape-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') uiApplyConfig();
+});
+document.getElementById('head-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') uiApplyConfig();
+});
+
+
+/* ============================================================
+   INICIALIZACIÓN
+   ─────────────────────────────────────────────────────────────
+   Carga el ejemplo de suma unaria al abrir la página.
+============================================================ */
+loadExample('unary_add');
+</script>
+
+</body>
+</html>
