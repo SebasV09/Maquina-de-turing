@@ -1,312 +1,365 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Máquina de Turing — Simulador Interactivo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
 
-<!-- ══════════════════════════════════════════════════
+  <!-- ══════════════════════════════════════════════════
      ENCABEZADO DE LA PÁGINA
 ══════════════════════════════════════════════════ -->
-<header>
-  <div class="header-left">
-    <div class="header-icon">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4fc3f7" stroke-width="1.8">
-        <rect x="2" y="8" width="20" height="9" rx="2"/>
-        <line x1="7" y1="8" x2="7" y2="17"/>
-        <line x1="12" y1="8" x2="12" y2="17"/>
-        <line x1="17" y1="8" x2="17" y2="17"/>
-        <polygon points="12,2 10,6.5 14,6.5" fill="#fbbf24" stroke="none"/>
-      </svg>
+  <header>
+    <div class="header-left">
+      <div class="header-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4fc3f7" stroke-width="1.8">
+          <rect x="2" y="8" width="20" height="9" rx="2" />
+          <line x1="7" y1="8" x2="7" y2="17" />
+          <line x1="12" y1="8" x2="12" y2="17" />
+          <line x1="17" y1="8" x2="17" y2="17" />
+          <polygon points="12,2 10,6.5 14,6.5" fill="#fbbf24" stroke="none" />
+        </svg>
+      </div>
+      <h1>
+        Máquina de Turing
+        <small>Simulador interactivo · Gramática y Lenguajes Formales — UTP</small>
+        <small>Sebastián Atehortúa Vásquez · Ángel David Henao Vélez</small>
+      </h1>
     </div>
-    <h1>
-      Máquina de Turing
-      <small>Simulador interactivo · Gramática y Lenguajes Formales — UTP</small>
-      <small>Sebastián Atehortúa Vásquez · Ángel David Henao Vélez</small>
-    </h1>
-  </div>
-  <span class="badge">v1.2</span>
-</header>
+    <span class="badge">
+      <v1 class="3"></v1>
+    </span>
+  </header>
 
-<!-- ══════════════════════════════════════════════════
+  <!-- ══════════════════════════════════════════════════
      CONTENIDO PRINCIPAL
 ══════════════════════════════════════════════════ -->
-<main>
+  <main>
 
-  <!-- ─── CINTA ─────────────────────────────────── -->
-  <div class="card tape-section">
-    <div class="section-label">Cinta (infinita en ambas direcciones)</div>
+    <!-- ─── CINTA ─────────────────────────────────── -->
+    <div class="card tape-section">
+      <div class="section-label">Cinta (infinita en ambas direcciones)</div>
 
-    <!--
+      <!--
       BARRA DE ESTADOS DEL CABEZAL
       Muestra el estado anterior (izquierda), la flecha del cabezal (centro)
       y el estado actual (derecha) para que el usuario pueda ver la transición
       de estados en tiempo real mientras la máquina avanza.
     -->
-    <div class="head-state-bar">
+      <div class="head-state-bar">
 
-      <!-- Estado ANTERIOR al último paso -->
-      <div class="hs-prev">
-        <div class="hs-label">Estado anterior</div>
-        <div class="hs-val" id="hs-prev">—</div>
-        <div class="hs-trans" id="hs-trans"></div>
+        <!-- Estado ANTERIOR al último paso -->
+        <div class="hs-prev">
+          <div class="hs-label">Estado anterior</div>
+          <div class="hs-val" id="hs-prev">—</div>
+          <div class="hs-trans" id="hs-trans"></div>
+        </div>
+
+        <!-- Flecha del cabezal (centro) -->
+        <div class="hs-center">
+          <div class="hc-label">Cabezal</div>
+          <svg width="18" height="11" viewBox="0 0 16 10" fill="currentColor">
+            <path d="M8 10 L0 0 L16 0 Z" />
+          </svg>
+        </div>
+
+        <!-- Estado ACTUAL -->
+        <div class="hs-curr">
+          <div class="hs-label">Estado actual</div>
+          <div class="hs-val" id="hs-curr">q0</div>
+        </div>
+
       </div>
+      <!-- fin head-state-bar -->
 
-      <!-- Flecha del cabezal (centro) -->
-      <div class="hs-center">
-        <div class="hc-label">Cabezal</div>
-        <svg width="18" height="11" viewBox="0 0 16 10" fill="currentColor">
-          <path d="M8 10 L0 0 L16 0 Z"/>
-        </svg>
-      </div>
-
-      <!-- Estado ACTUAL -->
-      <div class="hs-curr">
-        <div class="hs-label">Estado actual</div>
-        <div class="hs-val" id="hs-curr">q0</div>
-      </div>
-
-    </div>
-    <!-- fin head-state-bar -->
-
-    <!-- Celdas de la cinta (renderizadas por JS) -->
-    <div class="tape-track" id="tape-track"></div>
-  </div>
-
-  <!-- ─── ESTADO + TRANSICIÓN ───────────────────── -->
-  <div>
-    <div class="status-grid">
-      <div class="status-item">
-        <div class="stat-label">Estado actual</div>
-        <div class="stat-val" id="s-state">q0</div>
-      </div>
-      <div class="status-item">
-        <div class="stat-label">Símbolo leído</div>
-        <div class="stat-val" id="s-sym">#</div>
-      </div>
-      <div class="status-item">
-        <div class="stat-label">Pasos ejecutados</div>
-        <div class="stat-val" id="s-steps">0</div>
+      <!-- Contenedor interno para cinta infinita y cabezal móvil -->
+      <div class="tape-track" id="tape-track">
+        <div class="tape-track-inner" id="tape-track-inner">
+          <!-- Cabezal móvil flotante -->
+          <div class="tape-head-marker" id="tape-head-marker">
+            <div class="head-arrow-indicator" id="head-arrow-indicator"></div>
+            <div class="head-next-indicator" id="head-next-indicator" title="Próximo movimiento"></div>
+            <div class="head-box-frame"></div>
+          </div>
+          <!-- Celdas de la cinta (renderizadas por JS) -->
+          <div class="tape-cells-container" id="tape-cells-container"></div>
+        </div>
       </div>
     </div>
 
-    <!-- Banner de aceptación / rechazo / timeout -->
-    <div id="result-banner"></div>
-
-    <!-- Última transición aplicada: (estado, símbolo) → (nuevo, escribe, mueve) -->
-    <div class="trans-info-box no-trans" id="trans-info">
-      Sin transición aplicada aún — presiona «Paso a paso» para comenzar
-    </div>
-  </div>
-
-  <!-- ─── CONTROLES ─────────────────────────────── -->
-  <div class="card">
-    <div class="section-label">Controles de ejecución</div>
-    <div class="controls-bar">
-
-      <button class="btn btn-primary" id="btn-step" onclick="uiStep()" title="Ejecutar un paso">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-          <polygon points="5,3 19,12 5,21"/>
-          <rect x="19" y="3" width="3" height="18" rx="1"/>
-        </svg>
-        Paso a Paso
-      </button>
-
-      <button class="btn btn-ghost" id="btn-run" onclick="uiRun()" title="Ejecutar automáticamente">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-          <polygon points="5,3 19,12 5,21"/>
-        </svg>
-        Ejecutar
-      </button>
-
-      <button class="btn btn-ghost" id="btn-pause" onclick="uiPause()" disabled title="Pausar">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-          <rect x="5" y="3" width="5" height="18" rx="1"/>
-          <rect x="14" y="3" width="5" height="18" rx="1"/>
-        </svg>
-        Pausar
-      </button>
-
-      <button class="btn btn-danger" onclick="uiReset()" title="Reiniciar sin cambiar configuración">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-          <polyline points="1,4 1,10 7,10"/>
-          <path d="M3.51 15a9 9 0 1 0 .49-5.38"/>
-        </svg>
-        Reiniciar
-      </button>
-
-      <!-- Control de velocidad de ejecución automática -->
-      <div class="speed-wrap">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <polyline points="12,6 12,12 16,14"/>
-        </svg>
-        Velocidad
-        <input type="range" id="speed-slider" min="1" max="10" value="5">
-        <span class="speed-val" id="speed-val">5</span>
+    <!-- ─── ESTADO + TRANSICIÓN ───────────────────── -->
+    <div>
+      <div class="status-grid">
+        <div class="status-item">
+          <div class="stat-label">Estado actual</div>
+          <div class="stat-val" id="s-state">q0</div>
+        </div>
+        <div class="status-item">
+          <div class="stat-label">Símbolo leído</div>
+          <div class="stat-val" id="s-sym">#</div>
+        </div>
+        <div class="status-item">
+          <div class="stat-label">Pasos ejecutados</div>
+          <div class="stat-val" id="s-steps">0</div>
+        </div>
       </div>
 
-    </div>
-  </div>
+      <!-- Banner de aceptación / rechazo / timeout -->
+      <div id="result-banner"></div>
 
-  <!-- ─── CONFIGURACIÓN Y EJEMPLOS ─────────────── -->
-  <div class="card">
-    <div class="section-label">Configuración de entrada</div>
-    <div class="config-row">
-      <div class="field">
-        <label>Cinta inicial &nbsp;(<code style="font-size:.9em">#</code> = blanco)</label>
-        <input id="tape-input" class="text-input wide" type="text" value="111+11"
-               placeholder="Ej: 1010, abba, 111+11">
+      <!-- Última transición aplicada: (estado, símbolo) → (nuevo, escribe, mueve) -->
+      <div class="trans-info-box no-trans" id="trans-info">
+        Sin transición aplicada aún — presiona «Paso a paso» para comenzar
       </div>
-      <div class="field">
-        <label>Pos. inicial cabezal</label>
-        <input id="head-input" class="text-input narrow" type="number" value="0">
+    </div>
+
+    <!-- ─── CONTROLES ─────────────────────────────── -->
+    <div class="card">
+      <div class="section-label">Controles de ejecución</div>
+      <div class="controls-bar">
+
+        <button class="btn btn-primary" id="btn-step" onclick="uiStep()" title="Ejecutar un paso">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5,3 19,12 5,21" />
+            <rect x="19" y="3" width="3" height="18" rx="1" />
+          </svg>
+          Paso a Paso
+        </button>
+
+        <button class="btn btn-ghost" id="btn-run" onclick="uiRun()" title="Ejecutar automáticamente">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5,3 19,12 5,21" />
+          </svg>
+          Ejecutar
+        </button>
+
+        <button class="btn btn-ghost" id="btn-pause" onclick="uiPause()" disabled title="Pausar">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="5" y="3" width="5" height="18" rx="1" />
+            <rect x="14" y="3" width="5" height="18" rx="1" />
+          </svg>
+          Pausar
+        </button>
+
+        <button class="btn btn-danger" onclick="uiReset()" title="Reiniciar sin cambiar configuración">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+            stroke-linecap="round">
+            <polyline points="1,4 1,10 7,10" />
+            <path d="M3.51 15a9 9 0 1 0 .49-5.38" />
+          </svg>
+          Reiniciar
+        </button>
+
+        <!-- Control de velocidad de ejecución automática -->
+        <div class="speed-wrap">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12,6 12,12 16,14" />
+          </svg>
+          Velocidad
+          <input type="range" id="speed-slider" min="1" max="10" value="5">
+          <span class="speed-val" id="speed-val">5</span>
+        </div>
+
+        <!-- Control de zoom de la cinta -->
+        <div class="zoom-wrap">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            <line x1="11" y1="8" x2="11" y2="14" />
+            <line x1="8" y1="11" x2="14" y2="11" />
+          </svg>
+          Zoom Cinta
+          <input type="range" id="zoom-slider" min="40" max="80" value="60">
+          <span class="zoom-val" id="zoom-val">60px</span>
+        </div>
+
       </div>
-      <button class="btn btn-ghost" onclick="uiApplyConfig()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-          <polyline points="20,6 9,17 4,12"/>
-        </svg>
-        Aplicar
-      </button>
     </div>
 
-    <!-- Ejemplos precargados -->
-    <div style="margin-top:18px">
-      <div class="section-label" style="margin-bottom:10px">Ejemplos precargados</div>
-      <div class="examples-row">
-        <button class="btn-ex" id="ex-unary_add"  onclick="loadExample('unary_add')">➕ Suma Unaria</button>
-        <button class="btn-ex" id="ex-even_ones"  onclick="loadExample('even_ones')">🔢 Par de Unos</button>
-        <button class="btn-ex" id="ex-palindrome" onclick="loadExample('palindrome')">🔄 Palíndromo</button>
+    <!-- ─── CONFIGURACIÓN Y EJEMPLOS ─────────────── -->
+    <div class="card">
+      <div class="section-label">Configuración de entrada</div>
+      <div class="config-row">
+        <div class="field">
+          <label>Cinta inicial &nbsp;(<code style="font-size:.9em">#</code> = blanco)</label>
+          <input id="tape-input" class="text-input wide" type="text" value="111+11"
+            placeholder="Ej: 1010, abba, 111+11">
+        </div>
+        <div class="field">
+          <label>Pos. inicial cabezal</label>
+          <input id="head-input" class="text-input narrow" type="number" value="0">
+        </div>
+        <div class="field">
+          <label>Estado actual</label>
+          <input id="state-input" class="text-input narrow" type="text" value="q0" placeholder="q0">
+        </div>
+        <div class="field">
+          <label>Estado aceptación</label>
+          <input id="accept-input" class="text-input narrow" type="text" value="q_accept" placeholder="q_accept">
+        </div>
+        <div class="field">
+          <label>Estado rechazo</label>
+          <input id="reject-input" class="text-input narrow" type="text" value="q_reject" placeholder="q_reject">
+        </div>
+        <button class="btn btn-ghost" onclick="uiApplyConfig()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+            stroke-linecap="round">
+            <polyline points="20,6 9,17 4,12" />
+          </svg>
+          Aplicar
+        </button>
       </div>
-      <div class="example-desc" id="example-desc"></div>
-    </div>
-  </div>
 
-  <!-- ─── TABLA DE TRANSICIONES ────────────────── -->
-  <div class="card">
-    <div class="section-label">
-      Tabla de transiciones
-      <span style="font-weight:400;color:var(--text-faint);text-transform:none;letter-spacing:0;font-size:0.7rem">
-        (estado, lee) → (nuevo estado, escribe, movimiento)
-      </span>
-    </div>
-    <div class="table-scroll">
-      <table class="trans-table" id="trans-table">
-        <thead>
-          <tr>
-            <th class="center">Estado</th>
-            <th class="center">Lee</th>
-            <th></th>
-            <th class="center">Nuevo Estado</th>
-            <th class="center">Escribe</th>
-            <th class="center">Mueve</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="trans-tbody">
-          <!-- Filas generadas por JS -->
-        </tbody>
-      </table>
-    </div>
-    <div class="table-footer">
-      <button class="btn btn-ghost" style="font-size:0.8rem" onclick="addTransRow()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-        Añadir fila
-      </button>
-      <button class="btn btn-success" style="font-size:0.8rem" id="btn-apply-trans" onclick="applyTransitions()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-          <polyline points="20,6 9,17 4,12"/>
-        </svg>
-        Aplicar transiciones
-      </button>
-      <span class="table-hint">R = derecha · L = izquierda · S = quedarse</span>
-    </div>
-  </div>
+      <!-- Ejemplos precargados y personalizados -->
+      <div style="margin-top:18px">
+        <div class="section-label" style="margin-bottom:10px">Ejemplos precargados</div>
+        <div class="examples-row" id="examples-container">
+          <button class="btn-ex" id="ex-unary_add" onclick="loadExample('unary_add')">➕ Suma Unaria</button>
+          <button class="btn-ex" id="ex-even_ones" onclick="loadExample('even_ones')">🔢 Par de Unos</button>
+          <button class="btn-ex" id="ex-palindrome" onclick="loadExample('palindrome')">🔄 Palíndromo</button>
+          <button class="btn-ex" id="ex-binary_increment" onclick="loadExample('binary_increment')">🔢 Incremento
+            Binario</button>
+          <button class="btn-ex" id="ex-parentheses_match" onclick="loadExample('parentheses_match')">() Validador de
+            Paréntesis</button>
+        </div>
 
-</main>
+        <div class="example-desc" id="example-desc"></div>
+      </div>
+    </div>
+
+    <!-- ─── TABLA DE TRANSICIONES ────────────────── -->
+    <div class="card">
+      <div class="section-label">
+        Tabla de transiciones
+        <span style="font-weight:400;color:var(--text-faint);text-transform:none;letter-spacing:0;font-size:0.7rem">
+          (estado, lee) → (nuevo estado, escribe, movimiento)
+        </span>
+      </div>
+      <div class="table-scroll">
+        <table class="trans-table" id="trans-table">
+          <thead>
+            <tr>
+              <th class="center">Estado</th>
+              <th class="center">Lee</th>
+              <th></th>
+              <th class="center">Nuevo Estado</th>
+              <th class="center">Escribe</th>
+              <th class="center">Mueve</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="trans-tbody">
+            <!-- Filas generadas por JS -->
+          </tbody>
+        </table>
+      </div>
+      <div class="table-footer">
+        <button class="btn btn-ghost" style="font-size:0.8rem" onclick="addTransRow()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Añadir fila
+        </button>
+        <button class="btn btn-success" style="font-size:0.8rem" id="btn-apply-trans" onclick="applyTransitions()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round">
+            <polyline points="20,6 9,17 4,12" />
+          </svg>
+          Aplicar transiciones
+        </button>
+        <span class="table-hint">R = derecha · L = izquierda · S = quedarse</span>
+      </div>
+    </div>
+
+  </main>
 
 
-<!-- ══════════════════════════════════════════════════
+  <!-- ══════════════════════════════════════════════════
      PANEL FLOTANTE — HISTORIAL DE PASOS
      ─────────────────────────────────────────────────
      Draggable. Se abre automáticamente al terminar
      la ejecución. Muestra el recorrido de estados
      comprimido y la tabla completa de pasos.
 ══════════════════════════════════════════════════ -->
-<div class="float-panel" id="float-panel">
+  <div class="float-panel" id="float-panel">
 
-  <!-- Barra de arrastre (drag handle) -->
-  <div class="fp-header" id="fp-drag-handle">
-    <div class="fp-drag-dots">
-      <span></span><span></span>
+    <!-- Barra de arrastre (drag handle) -->
+    <div class="fp-header" id="fp-drag-handle">
+      <div class="fp-drag-dots">
+        <span></span><span></span>
+      </div>
+      <span class="fp-title">Historial de Pasos</span>
+      <button class="fp-btn-clear" onclick="clearLog()" title="Limpiar historial">Limpiar</button>
+      <button class="fp-btn-close" onclick="closeLogPanel()" title="Cerrar panel">✕</button>
     </div>
-    <span class="fp-title">Historial de Pasos</span>
-    <button class="fp-btn-clear" onclick="clearLog()" title="Limpiar historial">Limpiar</button>
-    <button class="fp-btn-close" onclick="closeLogPanel()" title="Cerrar panel">✕</button>
-  </div>
 
-  <!--
+    <!--
     RECORRIDO DE ESTADOS
     Aparece solo cuando la MT ha terminado.
     Muestra los nodos de estados visitados comprimiendo
     los estados consecutivos repetidos (con contador ×N).
   -->
-  <div class="fp-path" id="fp-path">
-    <div class="fp-path-title">Recorrido de estados</div>
-    <div class="fp-path-flow" id="fp-path-flow">
-      <!-- nodos .path-node generados por JS -->
+    <div class="fp-path" id="fp-path">
+      <div class="fp-path-title">Recorrido de estados</div>
+      <div class="fp-path-flow" id="fp-path-flow">
+        <!-- nodos .path-node generados por JS -->
+      </div>
+      <div class="fp-path-summary" id="fp-path-summary">
+        <!-- resumen: resultado + pasos -->
+      </div>
     </div>
-    <div class="fp-path-summary" id="fp-path-summary">
-      <!-- resumen: resultado + pasos -->
+
+    <!-- Encabezado de la tabla de log -->
+    <div class="fp-log-header">
+      <span>Paso</span>
+      <span>Estado</span>
+      <span style="text-align:center">Cab.</span>
+      <span style="text-align:center">Lee</span>
+      <span>Acción</span>
     </div>
-  </div>
 
-  <!-- Encabezado de la tabla de log -->
-  <div class="fp-log-header">
-    <span>Paso</span>
-    <span>Estado</span>
-    <span style="text-align:center">Cab.</span>
-    <span style="text-align:center">Lee</span>
-    <span>Acción</span>
-  </div>
-
-  <!-- Filas de pasos (generadas por JS, scroll) -->
-  <div id="step-log">
-    <div class="log-empty" id="log-empty">
-      — El historial aparecerá aquí al ejecutar la máquina —
+    <!-- Filas de pasos (generadas por JS, scroll) -->
+    <div id="step-log">
+      <div class="log-empty" id="log-empty">
+        — El historial aparecerá aquí al ejecutar la máquina —
+      </div>
     </div>
+
   </div>
-
-</div>
-<!-- fin float-panel -->
+  <!-- fin float-panel -->
 
 
-<!-- ══════════════════════════════════════════════════
+  <!-- ══════════════════════════════════════════════════
      FAB — Botón flotante para mostrar el panel
      Solo visible cuando el panel está cerrado
 ══════════════════════════════════════════════════ -->
-<button class="fab-log" id="fab-log" onclick="openLogPanel()" title="Ver historial de pasos">
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-    <polyline points="14,2 14,8 20,8"/>
-    <line x1="16" y1="13" x2="8" y2="13"/>
-    <line x1="16" y1="17" x2="8" y2="17"/>
-    <polyline points="10,9 9,9 8,9"/>
-  </svg>
-  Ver Historial
-</button>
+  <button class="fab-log" id="fab-log" onclick="openLogPanel()" title="Ver historial de pasos">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14,2 14,8 20,8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+      <polyline points="10,9 9,9 8,9" />
+    </svg>
+    Ver Historial
+  </button>
 
 
-<!-- JavaScript separado -->
-<script src="app.js"></script>
+  <!-- JavaScript separado -->
+  <script src="app.js"></script>
 
 </body>
+
 </html>
