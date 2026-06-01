@@ -362,18 +362,6 @@ function renderTape() {
   marker.style.width = `${cellWidth}px`;
   marker.style.height = `${cellWidth * 1.1}px`;
 
-  // Sincronizar .hs-center encima de la celda activa
-  const hsCenter = document.getElementById('hs-center-tape');
-  if (hsCenter) {
-    const cellCenterX = leftPos + cellWidth / 2;
-    hsCenter.style.position = 'absolute';
-    hsCenter.style.left = `${cellCenterX}px`;
-    hsCenter.style.top = `${-cellWidth * 0.6}px`;
-    hsCenter.style.transform = 'translateX(-50%)';
-    hsCenter.style.pointerEvents = 'none';
-    hsCenter.style.zIndex = '11';
-  }
-
   // Animación del cabezal (inclinación y flecha deslizable)
   marker.classList.remove('moving-left', 'moving-right');
   arrowInd.textContent = '';
