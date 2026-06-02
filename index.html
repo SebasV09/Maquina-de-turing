@@ -187,10 +187,11 @@
     <div class="card">
       <div class="section-label">Configuración de entrada</div>
       <div class="config-row">
-        <div class="field">
-          <label>Cinta inicial &nbsp;(<code style="font-size:.9em">#</code> = blanco)</label>
+        <div class="field field-tape">
+          <label>Cinta inicial &nbsp;(<code style="font-size:.9em">#</code> = blanco, no escribir en la cinta)</label>
           <input id="tape-input" class="text-input wide" type="text" value="111+11"
-            placeholder="Ej: 1010, abba, 111+11">
+            placeholder="Ej: 1010, abba, aa+aaa, 1001" autocomplete="off" spellcheck="false">
+          <p class="tape-input-hint" id="tape-input-hint" aria-live="polite"></p>
         </div>
         <div class="field">
           <label>Pos. inicial cabezal</label>
