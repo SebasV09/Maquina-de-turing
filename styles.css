@@ -563,6 +563,17 @@ main {
 .text-input.wide  { min-width: 220px; }
 .text-input.narrow{ width: 80px; }
 
+.field-tape { flex: 1 1 100%; min-width: 220px; }
+.tape-input-hint {
+  margin: 6px 0 0;
+  font-size: 0.72rem;
+  color: var(--reject);
+  min-height: 1.1em;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.tape-input-hint.visible { opacity: 1; }
+
 .examples-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .btn-ex {
   background: var(--surface2);

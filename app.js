@@ -156,149 +156,378 @@ class TuringMachine {
 
 
 /* ============================================================
+   UTILIDADES — ALFABETO Y ENTRADA
+============================================================ */
+const BLANK_SYM = '#';
+const RESERVED_MARKERS = ['X', '\u2297', '\u25A1', '\u25FB'];
+
+/** Símbolos únicos de la cinta (sin blanco ni separadores opcionales). */
+function uniqueTapeSymbols(str, exclude = []) {
+  const skip = new Set([BLANK_SYM, ...exclude]);
+  const seen = new Set();
+  const out = [];
+  for (const ch of str) {
+    if (skip.has(ch) || seen.has(ch)) continue;
+    seen.add(ch);
+    out.push(ch);
+  }
+  return out;
+}
+
+/** Elimina '#' de la entrada del usuario (reservado para celda vacía). */
+function sanitizeTapeInput(str) {
+  return (str || '').split('').filter(ch => ch !== BLANK_SYM).join('');
+}
+
+/** Elige un marcador auxiliar que no aparezca en la cinta ni sea blanco. */
+function pickAuxMarker(forbidden) {
+  const ban = new Set([BLANK_SYM, ...forbidden]);
+  for (const m of RESERVED_MARKERS) {
+    if (!ban.has(m)) return m;
+  }
+  for (let c = 65; c < 127; c++) {
+    const m = String.fromCharCode(c);
+    if (!ban.has(m)) return m;
+  }
+  return 'X';
+}
+
+/** ¿Todos los caracteres de `str` están en `allowed`? */
+function onlyUsesAlphabet(str, allowed) {
+  const set = new Set(allowed);
+  for (const ch of str) {
+    if (!set.has(ch)) return false;
+  }
+  return str.length > 0;
+}
+
+/* ============================================================
+   GENERADORES DE TRANSICIONES (alfabeto parametrizable)
+============================================================ */
+
+function generateUnaryAddTransitions(countSymbol, separator = '+') {
+  return [
+    ['q0', countSymbol, 'q0', countSymbol, 'R'],
+    ['q0', separator, 'q1', countSymbol, 'R'],
+    ['q1', countSymbol, 'q1', countSymbol, 'R'],
+    ['q1', BLANK_SYM, 'q2', BLANK_SYM, 'L'],
+    ['q2', countSymbol, 'q_accept', BLANK_SYM, 'S'],
+  ];
+}
+
+function generateEvenOnesTransitions(countSymbol, passSymbols) {
+  const trans = [];
+  for (const s of passSymbols) {
+    trans.push(['q0', s, 'q0', s, 'R']);
+    trans.push(['q1', s, 'q1', s, 'R']);
+  }
+  trans.push(['q0', countSymbol, 'q1', countSymbol, 'R']);
+  trans.push(['q0', BLANK_SYM, 'q_accept', BLANK_SYM, 'S']);
+  trans.push(['q1', countSymbol, 'q0', countSymbol, 'R']);
+  trans.push(['q1', BLANK_SYM, 'q_reject', BLANK_SYM, 'S']);
+  return trans;
+}
+
+function generatePalindromeTransitions(alphabet) {
+  const syms = alphabet.length ? alphabet : ['a', 'b'];
+  const n = syms.length;
+  const qReturn = `q${2 * n + 1}`;
+  const trans = [['q0', BLANK_SYM, 'q_accept', BLANK_SYM, 'S']];
+
+  for (let i = 0; i < n; i++) {
+    const qScan = `q${i + 1}`;
+    const qCheck = `q${n + 1 + i}`;
+    trans.push(['q0', syms[i], qScan, BLANK_SYM, 'R']);
+    for (const s of syms) trans.push([qScan, s, qScan, s, 'R']);
+    trans.push([qScan, BLANK_SYM, qCheck, BLANK_SYM, 'L']);
+    for (let j = 0; j < n; j++) {
+      if (j === i) trans.push([qCheck, syms[j], qReturn, BLANK_SYM, 'L']);
+      else trans.push([qCheck, syms[j], 'q_reject', syms[j], 'S']);
+    }
+    trans.push([qCheck, BLANK_SYM, 'q_accept', BLANK_SYM, 'S']);
+  }
+  for (const s of syms) trans.push([qReturn, s, qReturn, s, 'L']);
+  trans.push([qReturn, BLANK_SYM, 'q0', BLANK_SYM, 'R']);
+  return trans;
+}
+
+function generateBaseIncrementTransitions(digits) {
+  const ordered = digits.length ? digits : ['0', '1'];
+  const dMin = ordered[0];
+  const dMax = ordered[ordered.length - 1];
+  const overflowLead = ordered.length > 1 ? ordered[1] : ordered[0];
+  const trans = [];
+  for (const d of ordered) trans.push(['q0', d, 'q0', d, 'R']);
+  trans.push(['q0', BLANK_SYM, 'q1', BLANK_SYM, 'L']);
+  trans.push(['q1', dMax, 'q1', dMin, 'L']);
+  for (let i = 0; i < ordered.length - 1; i++) {
+    trans.push(['q1', ordered[i], 'q_accept', ordered[i + 1], 'S']);
+  }
+  trans.push(['q1', BLANK_SYM, 'q_accept', overflowLead, 'S']);
+  return trans;
+}
+
+function generateParenthesesTransitions(openSym, closeSym, marker) {
+  return [
+    ['q0', openSym, 'q0', openSym, 'R'],
+    ['q0', marker, 'q0', marker, 'R'],
+    ['q0', closeSym, 'q1', marker, 'L'],
+    ['q0', BLANK_SYM, 'q2', BLANK_SYM, 'L'],
+    ['q1', marker, 'q1', marker, 'L'],
+    ['q1', openSym, 'q0', marker, 'R'],
+    ['q1', BLANK_SYM, 'q_reject', BLANK_SYM, 'S'],
+    ['q2', marker, 'q2', marker, 'L'],
+    ['q2', BLANK_SYM, 'q_accept', BLANK_SYM, 'S'],
+    ['q2', openSym, 'q_reject', openSym, 'S'],
+  ];
+}
+
+/* Parámetros por ejemplo (auto-detección + prompts opcionales) */
+function detectUnaryAddParams(input, interactive) {
+  const sepIdx = input.indexOf('+');
+  if (sepIdx > 0) {
+    const left = input.slice(0, sepIdx);
+    const countSymbol = left[0];
+    if (left.split('').every(ch => ch === countSymbol)) {
+      return { countSymbol, separator: '+' };
+    }
+  }
+  const syms = uniqueTapeSymbols(input, ['+']);
+  if (syms.length === 1) return { countSymbol: syms[0], separator: '+' };
+  if (interactive) {
+    const picked = prompt(
+      'Suma unaria: símbolo de conteo (ej. 1 o a):',
+      syms[0] || '1'
+    );
+    if (picked && picked.length === 1 && picked !== BLANK_SYM) {
+      return { countSymbol: picked, separator: '+' };
+    }
+  }
+  return { countSymbol: '1', separator: '+' };
+}
+
+function detectEvenOnesParams(input, interactive) {
+  const syms = uniqueTapeSymbols(input);
+  if (onlyUsesAlphabet(input, ['0', '1'])) {
+    return { countSymbol: '1', passSymbols: ['0'] };
+  }
+  if (syms.length === 1) {
+    return { countSymbol: syms[0], passSymbols: [] };
+  }
+  if (interactive) {
+    const picked = prompt(
+      'Par de unos: ¿qué símbolo contar (paridad)?',
+      syms[0] || '1'
+    );
+    if (picked && picked.length === 1 && picked !== BLANK_SYM) {
+      return { countSymbol: picked, passSymbols: syms.filter(s => s !== picked) };
+    }
+  }
+  if (syms.length >= 2) {
+    const counts = {};
+    for (const ch of input) {
+      if (syms.includes(ch)) counts[ch] = (counts[ch] || 0) + 1;
+    }
+    let countSymbol = syms[0];
+    let maxN = -1;
+    for (const s of syms) {
+      if (counts[s] > maxN) { maxN = counts[s]; countSymbol = s; }
+    }
+    return { countSymbol, passSymbols: syms.filter(s => s !== countSymbol) };
+  }
+  return { countSymbol: '1', passSymbols: ['0'] };
+}
+
+function detectPalindromeParams(input) {
+  const alphabet = uniqueTapeSymbols(input);
+  return { alphabet: alphabet.length ? alphabet : ['a', 'b'] };
+}
+
+function detectBaseIncrementParams(input) {
+  if (onlyUsesAlphabet(input, ['0', '1'])) return { digits: ['0', '1'] };
+  if (onlyUsesAlphabet(input, '0123456789'.split(''))) {
+    return { digits: '0123456789'.split('') };
+  }
+  const fromTape = uniqueTapeSymbols(input);
+  if (fromTape.length) {
+    const sorted = fromTape.slice().sort();
+    return { digits: sorted };
+  }
+  return { digits: ['0', '1'] };
+}
+
+function detectParenthesesParams(input, interactive) {
+  if (input.includes('(') && input.includes(')')) {
+    return { openSym: '(', closeSym: ')' };
+  }
+  const syms = uniqueTapeSymbols(input);
+  if (syms.length === 2) {
+    return { openSym: syms[0], closeSym: syms[1] };
+  }
+  if (interactive) {
+    const openSym = prompt('Paréntesis: símbolo de apertura:', syms[0] || '(');
+    const closeSym = prompt('Paréntesis: símbolo de cierre:', syms[1] || ')');
+    if (openSym?.length === 1 && closeSym?.length === 1 &&
+        openSym !== BLANK_SYM && closeSym !== BLANK_SYM) {
+      return { openSym, closeSym };
+    }
+  }
+  return { openSym: '(', closeSym: ')' };
+}
+
+function resolveExampleTransitions(ex, input, interactive) {
+  const tape = sanitizeTapeInput(input);
+  if (!ex.generateTransitions) {
+    return { transitions: ex.transitions, params: null, tape };
+  }
+  let params;
+  switch (ex.id) {
+    case 'unary_add':
+      params = detectUnaryAddParams(tape, interactive);
+      return {
+        tape,
+        params,
+        transitions: ex.generateTransitions(params)
+      };
+    case 'even_ones':
+      params = detectEvenOnesParams(tape, interactive);
+      return {
+        tape,
+        params,
+        transitions: ex.generateTransitions(params)
+      };
+    case 'palindrome':
+      params = detectPalindromeParams(tape);
+      return {
+        tape,
+        params,
+        transitions: ex.generateTransitions(params)
+      };
+    case 'binary_increment':
+      params = detectBaseIncrementParams(tape);
+      return {
+        tape,
+        params,
+        transitions: ex.generateTransitions(params)
+      };
+    case 'parentheses_match': {
+      params = detectParenthesesParams(tape, interactive);
+      const marker = pickAuxMarker([params.openSym, params.closeSym, ...uniqueTapeSymbols(tape)]);
+      params.marker = marker;
+      return {
+        tape,
+        params,
+        transitions: ex.generateTransitions({ ...params, marker })
+      };
+    }
+    default:
+      return { transitions: ex.transitions, params: null, tape };
+  }
+}
+
+/* ============================================================
    EJEMPLOS PRECARGADOS
    ─────────────────────────────────────────────────────────────
-   Cada entrada es un objeto con: input, head, transitions[] y description.
-   Para añadir un nuevo ejemplo: copia una entrada, ajusta los datos y
-   añade un <button onclick="loadExample('nombre')"> en el HTML.
+   Cada entrada incluye generateTransitions(…) para alfabetos arbitrarios.
+   Las transiciones estáticas por defecto preservan el comportamiento original.
 ============================================================ */
 const EXAMPLES = {
 
   /* ─── Suma Unaria ─── */
   unary_add: {
+    id: 'unary_add',
     label: 'Suma Unaria',
     input: '111+11',
     head: 0,
     startState: 'q0',
     acceptState: 'q_accept',
     rejectState: 'q_reject',
-    transitions: [
-      ['q0', '1', 'q0', '1', 'R'],  // avanzar sobre 1s del 1er número
-      ['q0', '+', 'q1', '1', 'R'],  // reemplazar '+' por '1', continuar
-      ['q1', '1', 'q1', '1', 'R'],  // avanzar sobre 1s del 2do número
-      ['q1', '#', 'q2', '#', 'L'],  // fin de cinta → retroceder
-      ['q2', '1', 'q_accept', '#', 'S'],  // borrar último '1' y aceptar
-    ],
+    generateTransitions({ countSymbol, separator }) {
+      return generateUnaryAddTransitions(countSymbol, separator || '+');
+    },
+    transitions: generateUnaryAddTransitions('1', '+'),
     description:
       '➕  Suma dos números en notación UNARIA separados por "+".\n' +
-      '   Estrategia: convierte "+" en un "1" extra y borra el último "1" para compensar.\n' +
-      '   Entrada: 111 + 11  (representa 3 + 2)\n' +
-      '   Salida:  11111     (representa 5)\n' +
-      'Prueba también: "1+1111" (1+4), "11+1" (2+1).'
+      '   El símbolo de conteo se detecta de la cinta (p. ej. "aa+aaa" usa "a").\n' +
+      '   Estrategia: convierte "+" en un conteo extra y borra el último símbolo para compensar.\n' +
+      '   Entrada: 111+11  →  Salida: 11111  ·  Prueba: "aa+aaa", "1+1111".'
   },
 
   /* ─── Par de Unos ─── */
   even_ones: {
+    id: 'even_ones',
     label: 'Par de Unos',
     input: '10110',
     head: 0,
     startState: 'q0',
     acceptState: 'q_accept',
     rejectState: 'q_reject',
-    transitions: [
-      ['q0', '0', 'q0', '0', 'R'],  // ignorar cero (paridad par)
-      ['q0', '1', 'q1', '1', 'R'],  // leer 1 → cambiar a impar
-      ['q0', '#', 'q_accept', '#', 'S'],  // fin con paridad par → ACEPTAR
-      ['q1', '0', 'q1', '0', 'R'],  // ignorar cero (paridad impar)
-      ['q1', '1', 'q0', '1', 'R'],  // leer 1 → cambiar a par
-      ['q1', '#', 'q_reject', '#', 'S'],  // fin con paridad impar → RECHAZAR
-    ],
+    generateTransitions({ countSymbol, passSymbols }) {
+      return generateEvenOnesTransitions(countSymbol, passSymbols || []);
+    },
+    transitions: generateEvenOnesTransitions('1', ['0']),
     description:
-      '🔢  Acepta cadenas {0,1} con número PAR de unos.\n' +
-      '   q0 = cantidad par de 1s  •  q1 = cantidad impar de 1s\n' +
-      '   Equivalente a un AFD de 2 estados.\n' +
-      'Prueba: "1010" (2 unos → ✓)  •  "10110" (3 unos → ✗)  •  "1111" (4 → ✓).'
+      '🔢  Acepta cadenas con número PAR de un símbolo elegido.\n' +
+      '   Por defecto cuenta "1" e ignora "0"; con "xxyxx" cuenta "x".\n' +
+      '   q0 = paridad par  •  q1 = paridad impar (AFD de 2 estados).\n' +
+      'Prueba: "1010" (✓)  •  "xxyxx" (3×x → ✗)  •  "1111" (✓).'
   },
 
-  /* ─── Palíndromos sobre {a, b} ─── */
+  /* ─── Palíndromos (alfabeto detectado en la cinta) ─── */
   palindrome: {
+    id: 'palindrome',
     label: 'Palíndromo',
     input: 'abba',
     head: 0,
     startState: 'q0',
     acceptState: 'q_accept',
     rejectState: 'q_reject',
-    transitions: [
-      // q0: leer símbolo izquierdo y borrarlo
-      ['q0', 'a', 'q1', '#', 'R'],
-      ['q0', 'b', 'q2', '#', 'R'],
-      ['q0', '#', 'q_accept', '#', 'S'],  // cinta vacía → palíndromo ✓
-      // q1/q2: avanzar al extremo derecho
-      ['q1', 'a', 'q1', 'a', 'R'],
-      ['q1', 'b', 'q1', 'b', 'R'],
-      ['q1', '#', 'q3', '#', 'L'],       // llegó al borde → verificar 'a'
-      ['q2', 'a', 'q2', 'a', 'R'],
-      ['q2', 'b', 'q2', 'b', 'R'],
-      ['q2', '#', 'q4', '#', 'L'],       // llegó al borde → verificar 'b'
-      // q3: comprobar símbolo derecho esperando 'a'
-      ['q3', 'a', 'q5', '#', 'L'],
-      ['q3', 'b', 'q_reject', 'b', 'S'],
-      ['q3', '#', 'q_accept', '#', 'S'],  // un solo símbolo central ✓
-      // q4: comprobar símbolo derecho esperando 'b'
-      ['q4', 'b', 'q5', '#', 'L'],
-      ['q4', 'a', 'q_reject', 'a', 'S'],
-      ['q4', '#', 'q_accept', '#', 'S'],  // un solo símbolo central ✓
-      // q5: volver al borde izquierdo
-      ['q5', 'a', 'q5', 'a', 'L'],
-      ['q5', 'b', 'q5', 'b', 'L'],
-      ['q5', '#', 'q0', '#', 'R'],       // reiniciar ciclo
-    ],
+    generateTransitions({ alphabet }) {
+      return generatePalindromeTransitions(alphabet);
+    },
+    transitions: generatePalindromeTransitions(['a', 'b']),
     description:
-      '🔄  Reconoce palíndromos sobre {a, b}.\n' +
-      '   Borra el símbolo más a la izquierda y el más a la derecha comparándolos.\n' +
-      'Prueba: "abba" (✓) · "aba" (✓) · "ab" (✗) · "aabbaa" (✓) · "abab" (✗).'
+      '🔄  Reconoce palíndromos sobre el alfabeto de la cinta.\n' +
+      '   Borra extremos opuestos y compara; genera δ para cada símbolo detectado.\n' +
+      'Prueba: "abba" · "1001" · "ABBA" · "xyzzyx" · "12321".'
   },
 
-  /* ─── Incremento Binario ─── */
+  /* ─── Incremento en base detectada ─── */
   binary_increment: {
-    label: 'Incremento Binario',
+    id: 'binary_increment',
+    label: 'Incremento (+1)',
     input: '1011',
     head: 0,
     startState: 'q0',
     acceptState: 'q_accept',
     rejectState: 'q_reject',
-    transitions: [
-      ['q0', '0', 'q0', '0', 'R'],  // avanzar al final de la cinta
-      ['q0', '1', 'q0', '1', 'R'],
-      ['q0', '#', 'q1', '#', 'L'],  // al llegar al blanco retroceder incrementando
-      ['q1', '1', 'q1', '0', 'L'],  // 1 + 1 = 0 y llevo 1
-      ['q1', '0', 'q_accept', '1', 'S'],  // 0 + 1 = 1 y termina
-      ['q1', '#', 'q_accept', '1', 'S'],  // # + 1 = 1 y termina
-    ],
+    generateTransitions({ digits }) {
+      return generateBaseIncrementTransitions(digits);
+    },
+    transitions: generateBaseIncrementTransitions(['0', '1']),
     description:
-      '🔢  Suma 1 a un número BINARIO.\n' +
-      '   Estrategia: Se desplaza a la derecha hasta el final del número y luego retrocede hacia la izquierda sumando.\n' +
-      '   Entrada: 1011  (representa 11 en binario)\n' +
-      '   Salida:  1100  (representa 12 en binario).'
+      '🔢  Suma 1 al número en la cinta (binario, decimal u otro alfabeto ordenado).\n' +
+      '   Detecta dígitos: {0,1} → binario; solo 0-9 → decimal; si no, símbolos únicos ordenados.\n' +
+      '   Entrada: 1011 → 1100  ·  "123" → "124".'
   },
 
-  /* ─── Validador de Paréntesis ─── */
+  /* ─── Validador de pares apertura/cierre ─── */
   parentheses_match: {
+    id: 'parentheses_match',
     label: 'Validador de Paréntesis',
     input: '(()())',
     head: 0,
     startState: 'q0',
     acceptState: 'q_accept',
     rejectState: 'q_reject',
-    transitions: [
-      // q0: buscar el primer paréntesis de cierre ')'
-      ['q0', '(', 'q0', '(', 'R'],
-      ['q0', 'X', 'q0', 'X', 'R'],
-      ['q0', ')', 'q1', 'X', 'L'],  // encontrado ')', lo marca con 'X' e inicia búsqueda del '(' correspondiente
-      ['q0', '#', 'q2', '#', 'L'],  // no hay más ')', verificar si queda algún '(' abierto
-      // q1: buscar el '(' correspondiente yendo a la izquierda
-      ['q1', 'X', 'q1', 'X', 'L'],
-      ['q1', '(', 'q0', 'X', 'R'],  // emparejado con '(', lo marca con 'X' y vuelve a escanear a la derecha
-      ['q1', '#', 'q_reject', '#', 'S'],  // llegó al inicio de la cinta sin emparejar '(' → RECHAZA
-      // q2: comprobar que no queden '(' sin emparejar
-      ['q2', 'X', 'q2', 'X', 'L'],
-      ['q2', '#', 'q_accept', '#', 'S'],  // todo balanceado → ACEPTA
-      ['q2', '(', 'q_reject', '(', 'S'],  // queda algún '(' sin cerrar → RECHAZA
-    ],
+    generateTransitions({ openSym, closeSym, marker }) {
+      return generateParenthesesTransitions(openSym, closeSym, marker || 'X');
+    },
+    transitions: generateParenthesesTransitions('(', ')', 'X'),
     description:
-      '()  Verifica si los paréntesis en la cadena están balanceados.\n' +
-      '   Estrategia: Busca el primer ")" a la derecha, lo marca con "X" y regresa a la izquierda a emparejarlo con su "(" correspondiente. Repite hasta terminar.\n' +
-      '   Prueba: "(()())" (✓) · "(())" (✓) · "(()" (✗) · "())" (✗).'
+      '()  Verifica balance de un par apertura/cierre (por defecto "(" y ")").\n' +
+      '   Con otros símbolos se detectan o se preguntan al cargar; usa marcador auxiliar fuera del alfabeto.\n' +
+      '   Prueba: "(()())" (✓) · "<><>" con < y > · "(()" (✗).'
   }
 };
 
@@ -868,6 +1097,7 @@ function uiPause() {
 
 /* Configuración del ejemplo actualmente cargado (para poder reiniciarlo correctamente) */
 let currentExample = null;
+let currentExampleKey = null;
 
 /* Reinicia la MT con la configuración del ejemplo actualmente cargado */
 function uiReset() {
@@ -882,7 +1112,7 @@ function uiReset() {
     document.getElementById('reject-input').value = currentExample.rejectState;
   }
 
-  const input = document.getElementById('tape-input').value || '#';
+  const input = sanitizeTapeInput(document.getElementById('tape-input').value);
   const head = parseInt(document.getElementById('head-input').value) || 0;
   const startState = document.getElementById('state-input').value.trim() || 'q0';
   const acceptState = document.getElementById('accept-input').value.trim() || 'q_accept';
@@ -911,15 +1141,38 @@ function uiReset() {
   updateButtons();
 }
 
-/* Aplica la nueva cinta escrita por el usuario, manteniendo las transiciones del ejemplo */
+/* Aplica la nueva cinta escrita por el usuario, regenerando δ si el ejemplo es parametrizable */
 function uiApplyConfig() {
-  const newInput = document.getElementById('tape-input').value || '#';
-  const newHead  = parseInt(document.getElementById('head-input').value) || 0;
+  const rawInput = document.getElementById('tape-input').value || '';
+  const newInput = sanitizeTapeInput(rawInput);
+  const newHead = parseInt(document.getElementById('head-input').value) || 0;
 
-  // Actualizar el snapshot del ejemplo con la nueva cinta/posición
-  if (currentExample) {
+  if (rawInput !== newInput) {
+    document.getElementById('tape-input').value = newInput;
+    showTapeInputHint('El símbolo # está reservado para celdas vacías y se eliminó de la cinta.');
+  }
+
+  if (currentExampleKey) {
+    const ex = getExampleData(currentExampleKey);
+    if (ex?.generateTransitions) {
+      const { transitions, tape, params } = resolveExampleTransitions(ex, newInput, false);
+      currentExample = {
+        ...currentExample,
+        input: tape,
+        head: newHead,
+        transitions,
+        params
+      };
+      document.getElementById('tape-input').value = tape;
+      loadTransitionsIntoTable(transitions);
+      tm.setTransitions(transitions);
+    } else if (currentExample) {
+      currentExample.input = newInput;
+      currentExample.head = newHead;
+    }
+  } else if (currentExample) {
     currentExample.input = newInput;
-    currentExample.head  = newHead;
+    currentExample.head = newHead;
   }
 
   uiReset();
@@ -936,32 +1189,37 @@ function loadExample(name) {
   const ex = getExampleData(name);
   if (!ex) return;
 
+  currentExampleKey = name;
   const startState = ex.startState || 'q0';
   const acceptState = ex.acceptState || 'q_accept';
   const rejectState = ex.rejectState || 'q_reject';
 
-  // Guardar la configuración inicial del ejemplo para poder reiniciarla después
+  const baseInput = sanitizeTapeInput(ex.input);
+  const { transitions, tape, params } = resolveExampleTransitions(ex, baseInput, true);
+
   currentExample = {
-    input: ex.input,
+    input: tape,
     head: ex.head,
     startState: startState,
     acceptState: acceptState,
     rejectState: rejectState,
-    transitions: ex.transitions
+    transitions: transitions,
+    params: params
   };
 
-  document.getElementById('tape-input').value = ex.input;
+  document.getElementById('tape-input').value = tape;
   document.getElementById('head-input').value = ex.head;
   document.getElementById('state-input').value = startState;
   document.getElementById('accept-input').value = acceptState;
   document.getElementById('reject-input').value = rejectState;
 
-  loadTransitionsIntoTable(ex.transitions);
-  tm.setTransitions(ex.transitions);
+  loadTransitionsIntoTable(transitions);
+  tm.setTransitions(transitions);
   tm.acceptState = acceptState;
   tm.rejectState = rejectState;
-  tm.loadTape(ex.input, ex.head, startState);
+  tm.loadTape(tape, ex.head, startState);
   prevHead = ex.head;
+  clearTapeInputHint();
 
   // Descripción del ejemplo
   const desc = document.getElementById('example-desc');
@@ -1196,6 +1454,36 @@ function updateButtons() {
 
 
 /* ============================================================
+   VALIDACIÓN DE ENTRADA DE CINTA
+============================================================ */
+function showTapeInputHint(msg) {
+  const el = document.getElementById('tape-input-hint');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+
+function clearTapeInputHint() {
+  const el = document.getElementById('tape-input-hint');
+  if (!el) return;
+  el.textContent = '';
+  el.classList.remove('visible');
+}
+
+function onTapeInputChange() {
+  const input = document.getElementById('tape-input');
+  if (!input) return;
+  const raw = input.value;
+  if (raw.indexOf(BLANK_SYM) === -1) {
+    clearTapeInputHint();
+    return;
+  }
+  const cleaned = sanitizeTapeInput(raw);
+  input.value = cleaned;
+  showTapeInputHint('No uses "#" en la cinta: es el símbolo blanco de la MT.');
+}
+
+/* ============================================================
    EVENTOS DE LA INTERFAZ
 ============================================================ */
 
@@ -1229,6 +1517,10 @@ document.getElementById('trans-tbody').addEventListener('input', () => {
   tm.setTransitions(arr);
   renderTape(); // Actualizar semáforo de próximo paso
 });
+
+// Validar cinta: '#' reservado para blanco
+document.getElementById('tape-input').addEventListener('input', onTapeInputChange);
+document.getElementById('tape-input').addEventListener('blur', onTapeInputChange);
 
 // Enter en los campos de texto aplica la configuración
 document.getElementById('tape-input').addEventListener('keydown', e => {
